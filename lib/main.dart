@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:studygpt1/AccountActivationPage.dart';
 import 'package:studygpt1/challenges.dart';
 import 'package:studygpt1/chatbot.dart';
 import 'package:studygpt1/schedules.dart';
@@ -12,12 +13,16 @@ import 'package:studygpt1/analytics_page.dart';
 import 'package:studygpt1/UserProfilePage.dart';
 import 'login_screen.dart';
 import 'slt.dart';
+import 'dart:async';
 import 'home.dart';
-import 'firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'notifications.dart';
+import 'firebase_options.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'package:http/http.dart' as http;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -59,6 +64,8 @@ class StudyGPTApp extends StatelessWidget {
   }
 }
 
+
+
 class StudyGPTHome extends StatefulWidget {
   @override
   _StudyGPTHomeState createState() => _StudyGPTHomeState();
@@ -72,6 +79,8 @@ class _StudyGPTHomeState extends State<StudyGPTHome> {
   String studyTipDescription = "";
   double pdfReadingProgress = 0.0;
   String username = '';
+  String email = '';
+  bool showActivationBanner = false;
 
   final CollectionReference studyTipsCollection =
   FirebaseFirestore.instance.collection('study_tips');
@@ -123,6 +132,7 @@ class _StudyGPTHomeState extends State<StudyGPTHome> {
     });
     await _fetchStudyTips();
   }
+
   void loadUsername() async {
     final prefs = await SharedPreferences.getInstance();
     String? email = prefs.getString('username');
@@ -133,7 +143,15 @@ class _StudyGPTHomeState extends State<StudyGPTHome> {
       });
     }
   }
-
+  void loadEmail() async{
+    final prefs = await SharedPreferences.getInstance();
+    String? emailOnLocal = prefs.getString('email');
+    if (emailOnLocal != null) {
+      setState(() {
+        email = emailOnLocal;
+      });
+    }
+  }
 
   Future<void> _loadReadingProgress() async {
     final prefs = await SharedPreferences.getInstance();
@@ -149,6 +167,14 @@ class _StudyGPTHomeState extends State<StudyGPTHome> {
     });
   }
 
+  Future<void> _checkAccountStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool isActive = prefs.getBool('is_active') ?? false;
+    setState(() {
+      showActivationBanner = !isActive;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -156,6 +182,8 @@ class _StudyGPTHomeState extends State<StudyGPTHome> {
     _loadReadingProgress();
     _checkForSchedule();
     loadUsername();
+    loadEmail();
+    _checkAccountStatus();
   }
 
   @override
@@ -176,11 +204,13 @@ class _StudyGPTHomeState extends State<StudyGPTHome> {
             style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         centerTitle: true,
         actions: [
-          IconButton(icon:Icon(Icons.notification_add), color: Colors.black,
+          IconButton(
+            icon: Icon(Icons.notification_add, color: Colors.black),
             onPressed: () {
-        Navigator.push(context,
-        MaterialPageRoute(builder: (context) => NotificationsPage()));
-  },
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => NotificationsPage()));
+            },
           ),
           SizedBox(width: 10),
           IconButton(
@@ -271,7 +301,7 @@ class _StudyGPTHomeState extends State<StudyGPTHome> {
               },
             ),
             ListTile(
-              leading: Icon(Icons.analytics, color: Colors.teal.shade700), // Analytics added above Settings
+              leading: Icon(Icons.analytics, color: Colors.teal.shade700),
               title: Text('Analytics', style: TextStyle(fontWeight: FontWeight.w500)),
               onTap: () {
                 Navigator.pop(context);
@@ -312,57 +342,109 @@ class _StudyGPTHomeState extends State<StudyGPTHome> {
             final scheduleExists = snapshot.data!;
             return RefreshIndicator(
               onRefresh: _refresh,
-              child: SingleChildScrollView(
-                physics: AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Welcome, $username!',
-                        style: TextStyle(
-                            fontSize: 22, fontWeight: FontWeight.bold)),
-                    SizedBox(height: 10),
-                    if (showScheduleCard)
-                      ScheduleCard(
-                        onDismiss: () {
-                          setState(() {
-                            showScheduleCard = false;
-                          });
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                            content: Text('Schedule dismissed'),
-                            action: SnackBarAction(
-                              label: 'Undo',
+              child: Stack(
+                children: [
+                  SingleChildScrollView(
+                    physics: AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(height: showActivationBanner ? 60 : 0),
+                        Text('Welcome, $username!',
+                            style: TextStyle(
+                                fontSize: 22, fontWeight: FontWeight.bold)),
+                        SizedBox(height: 10),
+                        if (showScheduleCard)
+                          ScheduleCard(
+                            onDismiss: () {
+                              setState(() {
+                                showScheduleCard = false;
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                content: Text('Schedule dismissed'),
+                                action: SnackBarAction(
+                                  label: 'Undo',
+                                  onPressed: () {
+                                    setState(() {
+                                      showScheduleCard = true;
+                                    });
+                                  },
+                                ),
+                              ));
+                            },
+                          ),
+                        SizedBox(height: 20),
+                        Text("Let's start Learning!",
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold)),
+                        SizedBox(height: 10),
+                        _buildLearningCards(),
+                        SizedBox(height: 20),
+                        Text("Academic Planners",
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold)),
+                        SizedBox(height: 10),
+                        _buildPlannerCards(),
+                        SizedBox(height: 20),
+                        _buildTipOfTheDay(),
+                        SizedBox(height: 20),
+                        Text("Daily Challenges 🏆",
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold)),
+                        SizedBox(height: 10),
+                        TriviaScreen(),
+                      ],
+                    ),
+                  ),
+                  if (showActivationBanner)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        color: Colors.amber[100],
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (context) => AccountActivationPage(
+                                            email: email)),
+                                  ).then((result) {
+                                    if (result == true) {
+                                      _checkAccountStatus();
+                                    }
+                                  });
+                                },
+                                child: Text(
+                                  'Activate your account to unlock all features!',
+                                  style: TextStyle(
+                                    color: Colors.amber[900],
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.close, color: Colors.amber[900]),
                               onPressed: () {
                                 setState(() {
-                                  showScheduleCard = true;
+                                  showActivationBanner = false;
                                 });
                               },
                             ),
-                          ));
-                        },
+                          ],
+                        ),
                       ),
-                    SizedBox(height: 20),
-                    Text("Let's start Learning!",
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold)),
-                    SizedBox(height: 10),
-                    _buildLearningCards(),
-                    SizedBox(height: 20),
-                    Text("Academic Planners",
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold)),
-                    SizedBox(height: 10),
-                    _buildPlannerCards(),
-                    SizedBox(height: 20),
-                    _buildTipOfTheDay(),
-                    SizedBox(height: 20),
-                    Text("Daily Challenges 🏆",
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold)),
-                    SizedBox(height: 10),
-                    TriviaScreen(),
-                  ],
-                ),
+                    ),
+                ],
               ),
             );
           }),
@@ -505,60 +587,103 @@ class _StudyGPTHomeState extends State<StudyGPTHome> {
 
   Widget _buildTipOfTheDay() {
     return Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+    elevation: 5,
+    color: Colors.indigo[50],
+    child: Padding(
+    padding: EdgeInsets.all(16.0),
+    child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+    Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+    Text(
+    '🧠 Study Tip of the Day',
+    style: TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.bold,
+    color: Colors.indigo[800],
+    ),
+    ),
+    IconButton(
+    icon: Icon(Icons.refresh, color: Colors.indigo),
+    onPressed: _refresh,
+    ),
+    ],
+    ),
+    SizedBox(height: 10),
+    isLoading
+    ? Row(
+    children: [
+    CircularProgressIndicator(),
+    SizedBox(width: 10),
+    Text(
+    "Fetching tip...",
+    style: TextStyle(fontSize: 16, color: Colors.black54),
+    ),
+    ],
+    )
+        : Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+    Text(
+    studyTipTitle,
+    style: TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.bold,
+    color: Colors.black87,
+    ),
+    ),
+    SizedBox(height: 6),
+    Text(
+    studyTipDescription,
+    style: TextStyle(fontSize: 14, color: Colors.black87),
+    ),
+    ],
+    ),
+    ],
+    ),
+    ));
+    }
+}
+
+class ScheduleCard extends StatelessWidget {
+  final VoidCallback onDismiss;
+
+  ScheduleCard({required this.onDismiss});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      elevation: 5,
-      color: Colors.indigo[50],
+      elevation: 4,
       child: Padding(
         padding: EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '🧠 Study Tip of the Day',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.indigo[800],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Create a Schedule',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                IconButton(
-                  icon: Icon(Icons.refresh, color: Colors.indigo),
-                  onPressed: _refresh,
-                ),
-              ],
+                  SizedBox(height: 8),
+                  Text(
+                    'Plan your study sessions to stay organized!',
+                    style: TextStyle(fontSize: 14, color: Colors.black54),
+                  ),
+                ],
+              ),
             ),
-            SizedBox(height: 10),
-            isLoading
-                ? Row(
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(width: 10),
-                Text(
-                  "Fetching tip...",
-                  style: TextStyle(fontSize: 16, color: Colors.black54),
-                ),
-              ],
-            )
-                : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  studyTipTitle,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                SizedBox(height: 6),
-                Text(
-                  studyTipDescription,
-                  style: TextStyle(fontSize: 14, color: Colors.black87),
-                ),
-              ],
+            IconButton(
+              icon: Icon(Icons.close, color: Colors.grey),
+              onPressed: onDismiss,
             ),
           ],
         ),

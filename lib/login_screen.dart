@@ -119,10 +119,10 @@ class _LoginScreenState extends State<LoginScreen>
           Uri.parse('http://56.228.80.139/api/account/login/'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
-            'username_or_email': _emailController.text,
-            'password': _passwordController.text,
+            'username_or_email': _emailController.text.trim(),
+            'password': _passwordController.text.trim(),
           }),
-        ).timeout(const Duration(seconds: 15)); // Added timeout
+        ).timeout(const Duration(seconds: 15));
 
         log('Login response: ${response.statusCode} - ${response.body}');
         final email = _emailController.text.trim();
@@ -131,21 +131,18 @@ class _LoginScreenState extends State<LoginScreen>
 
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('username', email);
-          //TODO: do something about this
           await prefs.setBool('loggedIn', true);
-          print('User logged in as: $email');
-          final token=responseData['tokens']['access'];
-          final refresh=responseData['tokens']['refresh'];
-
+          final token = responseData['tokens']['access'];
+          final refresh = responseData['tokens']['refresh'];
 
           if (responseData['tokens'] != null) {
-            final prefs = await SharedPreferences.getInstance();
             await prefs.setString('accessToken', token);
             await prefs.setString('refreshToken', refresh);
-
           }
           if (responseData['user'] != null) {
             await prefs.setString('userData', jsonEncode(responseData['user']));
+            // Store is_active in SharedPreferences
+            await prefs.setBool('is_active', responseData['user']['is_active']);
           }
 
           _showToast("Login successful!", Colors.green);
@@ -153,8 +150,6 @@ class _LoginScreenState extends State<LoginScreen>
           print("Login response body: ${response.body}");
 
           await prefs.setString('authToken', token);
-
-
 
           Navigator.pushReplacement(
             context,

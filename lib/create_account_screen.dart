@@ -2,6 +2,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:studygpt1/AccountActivationPage.dart';
+import 'package:studygpt1/ConfirmPasswordScreen.dart';
+import 'main.dart'; // Import main.dart for AccountActivationPage
 
 class CreateAccountScreen extends StatefulWidget {
   const CreateAccountScreen({Key? key}) : super(key: key);
@@ -104,7 +108,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
         ).timeout(const Duration(seconds: 10));
 
         if (response.statusCode == 201 || response.statusCode == 200) {
-          _showToast("Account created successfully!", Colors.green);
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('email', _emailController.text.trim());
+          _showToast("Account created successfully! Please verify your email.", Colors.green);
           Navigator.pop(context);
         } else {
           final errorData = jsonDecode(response.body);
@@ -292,8 +298,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen>
                           _buildConfirmPasswordField(),
                           const SizedBox(height: 30),
                           _isLoading
-                              ? CircularProgressIndicator() :
-                          MouseRegion(
+                              ? CircularProgressIndicator()
+                              : MouseRegion(
                             onEnter: _onEnterButton,
                             onExit: _onExitButton,
                             child: GestureDetector(
