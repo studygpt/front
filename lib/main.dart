@@ -23,6 +23,7 @@ import 'firebase_options.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'feedback_page.dart'; //
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -63,8 +64,6 @@ class StudyGPTApp extends StatelessWidget {
     );
   }
 }
-
-
 
 class StudyGPTHome extends StatefulWidget {
   @override
@@ -143,7 +142,8 @@ class _StudyGPTHomeState extends State<StudyGPTHome> {
       });
     }
   }
-  void loadEmail() async{
+
+  void loadEmail() async {
     final prefs = await SharedPreferences.getInstance();
     String? emailOnLocal = prefs.getString('email');
     if (emailOnLocal != null) {
@@ -173,6 +173,30 @@ class _StudyGPTHomeState extends State<StudyGPTHome> {
     setState(() {
       showActivationBanner = !isActive;
     });
+  }
+
+  Future<void> _sendOtpRequest(String email) async {
+    try {
+      final response = await http.post(
+        Uri.parse('http://56.228.80.139/api/account/send_otp/'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email}),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('OTP sent successfully')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send OTP. Please try again.')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error sending OTP: $e')),
+      );
+    }
   }
 
   @override
@@ -320,13 +344,12 @@ class _StudyGPTHomeState extends State<StudyGPTHome> {
             ),
             Divider(),
             ListTile(
-              leading: Icon(Icons.exit_to_app, color: Colors.grey),
-              title: Text('Logout', style: TextStyle(color: Colors.grey)),
-              onTap: () async {
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.setBool('loggedIn', false);
-                Navigator.pushReplacement(context,
-                    MaterialPageRoute(builder: (context) => LoginScreen()));
+              leading: Icon(Icons.feedback, color: Colors.teal.shade700),
+              title: Text('Feedback', style: TextStyle(fontWeight: FontWeight.w500)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context,
+                    MaterialPageRoute(builder: (context) => FeedbackPage()));
               },
             ),
           ],
@@ -347,8 +370,7 @@ class _StudyGPTHomeState extends State<StudyGPTHome> {
                   SingleChildScrollView(
                     physics: AlwaysScrollableScrollPhysics(),
                     padding: EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         SizedBox(height: showActivationBanner ? 60 : 0),
                         Text('Welcome, $username!',
@@ -410,7 +432,8 @@ class _StudyGPTHomeState extends State<StudyGPTHome> {
                           children: [
                             Expanded(
                               child: GestureDetector(
-                                onTap: () {
+                                onTap: () async {
+                                  await _sendOtpRequest(email);
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
@@ -588,64 +611,64 @@ class _StudyGPTHomeState extends State<StudyGPTHome> {
   Widget _buildTipOfTheDay() {
     return Card(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-    elevation: 5,
-    color: Colors.indigo[50],
-    child: Padding(
-    padding: EdgeInsets.all(16.0),
-    child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-    Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-    Text(
-    '🧠 Study Tip of the Day',
-    style: TextStyle(
-    fontSize: 18,
-    fontWeight: FontWeight.bold,
-    color: Colors.indigo[800],
-    ),
-    ),
-    IconButton(
-    icon: Icon(Icons.refresh, color: Colors.indigo),
-    onPressed: _refresh,
-    ),
-    ],
-    ),
-    SizedBox(height: 10),
-    isLoading
-    ? Row(
-    children: [
-    CircularProgressIndicator(),
-    SizedBox(width: 10),
-    Text(
-    "Fetching tip...",
-    style: TextStyle(fontSize: 16, color: Colors.black54),
-    ),
-    ],
-    )
-        : Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-    Text(
-    studyTipTitle,
-    style: TextStyle(
-    fontSize: 16,
-    fontWeight: FontWeight.bold,
-    color: Colors.black87,
-    ),
-    ),
-    SizedBox(height: 6),
-    Text(
-    studyTipDescription,
-    style: TextStyle(fontSize: 14, color: Colors.black87),
-    ),
-    ],
-    ),
-    ],
-    ),
-    ));
-    }
+        elevation: 5,
+        color: Colors.indigo[50],
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '🧠 Study Tip of the Day',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.indigo[800],
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.refresh, color: Colors.indigo),
+                    onPressed: _refresh,
+                  ),
+                ],
+              ),
+              SizedBox(height: 10),
+              isLoading
+                  ? Row(
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(width: 10),
+                  Text(
+                    "Fetching tip...",
+                    style: TextStyle(fontSize: 16, color: Colors.black54),
+                  ),
+                ],
+              )
+                  : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    studyTipTitle,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    studyTipDescription,
+                    style: TextStyle(fontSize: 14, color: Colors.black87),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ));
+  }
 }
 
 class ScheduleCard extends StatelessWidget {

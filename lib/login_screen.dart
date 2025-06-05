@@ -125,31 +125,37 @@ class _LoginScreenState extends State<LoginScreen>
         ).timeout(const Duration(seconds: 15));
 
         log('Login response: ${response.statusCode} - ${response.body}');
-        final email = _emailController.text.trim();
         if (response.statusCode == 200) {
           final responseData = jsonDecode(response.body);
 
           final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('username', email);
-          await prefs.setBool('loggedIn', true);
-          final token = responseData['tokens']['access'];
-          final refresh = responseData['tokens']['refresh'];
-
+          // Save tokens
           if (responseData['tokens'] != null) {
-            await prefs.setString('accessToken', token);
-            await prefs.setString('refreshToken', refresh);
+            await prefs.setString('accessToken', responseData['tokens']['access']);
+            await prefs.setString('refreshToken', responseData['tokens']['refresh']);
+            await prefs.setString('authToken', responseData['tokens']['access']);
           }
+
+          // Save user information
           if (responseData['user'] != null) {
-            await prefs.setString('userData', jsonEncode(responseData['user']));
-            // Store is_active in SharedPreferences
-            await prefs.setBool('is_active', responseData['user']['is_active']);
+            final user = responseData['user'];
+            await prefs.setInt('user_id', user['id'] ?? 0);
+            await prefs.setString('username', user['username'] ?? '');
+            await prefs.setString('email', user['email'] ?? '');
+            await prefs.setString('first_name', user['first_name'] ?? '');
+            await prefs.setString('last_name', user['last_name'] ?? '');
+            await prefs.setString('role', user['role'] ?? '');
+            await prefs.setInt('grade', user['grade'] ?? 0);
+            await prefs.setBool('is_active', user['is_active'] ?? false);
+            // Optionally, keep the userData JSON for compatibility
+            await prefs.setString('userData', jsonEncode(user));
           }
+
+          await prefs.setBool('loggedIn', true);
 
           _showToast("Login successful!", Colors.green);
-          print("Token saved: $token");
+          print("Token saved: ${responseData['tokens']['access']}");
           print("Login response body: ${response.body}");
-
-          await prefs.setString('authToken', token);
 
           Navigator.pushReplacement(
             context,
@@ -305,10 +311,6 @@ class _LoginScreenState extends State<LoginScreen>
                                 if (value == null || value.isEmpty) {
                                   return 'Please enter your email or username';
                                 }
-                                // if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                                //     .hasMatch(value) && !RegExp(r'^\w+$').hasMatch(value)) {
-                                //   return 'Enter a valid email or username';
-                                // }
                                 return null;
                               },
                             ),

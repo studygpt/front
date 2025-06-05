@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:syncfusion_flutter_charts/charts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AnalyticsPage extends StatefulWidget {
   @override
@@ -32,10 +33,17 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     });
 
     try {
+      // Retrieve user ID from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id') ?? 0; // Default to 0 if not found
+      if (userId == 0) {
+        throw Exception('User ID not found in SharedPreferences');
+      }
+
       final responses = await Future.wait([
-        _safeApiCall('http://56.228.80.139/api/analytics/interactions/?user_id=1&paginate_by=month'),
-        _safeApiCall('http://56.228.80.139/api/analytics/quiz-performance/?user_id=1&paginate_by=week'),
-        _safeApiCall('http://56.228.80.139/api/analytics/ai-usage/?user_id=1&paginate_by=month'),
+        _safeApiCall('http://56.228.80.139/api/analytics/interactions/?user_id=$userId&paginate_by=month'),
+        _safeApiCall('http://56.228.80.139/api/analytics/quiz-performance/?user_id=$userId&paginate_by=month'),
+        _safeApiCall('http://56.228.80.139/api/analytics/ai-usage/?user_id=$userId&paginate_by=month'),
       ]);
 
       _processInteractionsData(responses[0]);

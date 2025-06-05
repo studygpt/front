@@ -26,7 +26,7 @@ class _AccountActivationPageState extends State<AccountActivationPage>
   late Animation<double> _buttonScaleAnimation;
 
   // Define API base URL (use HTTPS for security)
-  static const String apiBaseUrl = 'https://56.228.80.139';
+  static const String apiBaseUrl = 'http://56.228.80.139';
 
   @override
   void initState() {
